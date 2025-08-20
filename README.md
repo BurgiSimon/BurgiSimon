@@ -29,6 +29,8 @@
 <p><img align="left" src="https://github-readme-stats.vercel.app/api/top-langs?username=burgisimon&show_icons=true&locale=en&layout=compact" alt="burgisimon" /></p>
 
 <br clear="both">
+<br clear="both">
+
 
 <div align="center">
 <p align="left"> <img src="https://komarev.com/ghpvc/?username=burgisimon&label=Profile%20views&color=0e75b6&style=flat" alt="burgisimon" /> </p>
