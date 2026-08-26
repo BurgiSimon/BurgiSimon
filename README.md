@@ -1,6 +1,8 @@
 <h2 align="left">Read 👀</h2>
 
-Currently working on https://github.com/BurgiSimon/PlayerScale
+Currently working on:
+- https://github.com/BurgiSimon/triolFM
+- https://github.com/BurgiSimon/PlayerScale
 
 ###
 
@@ -28,8 +30,7 @@ Currently working on https://github.com/BurgiSimon/PlayerScale
 <br clear="both">
 
 
-<br clear="both">
-<br clear="both">
+
 
 
 <div align="center">
