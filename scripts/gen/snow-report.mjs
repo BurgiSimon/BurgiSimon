@@ -41,30 +41,43 @@ export function snowReport(cal, s, t, updated) {
   const n = s.sums.length, step = (X1 - X0) / (n - 1);
   const max = Math.max(1, ...s.sums);
   const FLOOR = 24; // quiet weeks still leave room for the month labels
-  const height = v => (v ? FLOOR + 8 + (BASE - TOP - FLOOR - 8) * Math.sqrt(v / max) : FLOOR);
-  const peaks = s.sums.map((v, i) => [X0 + i * step, BASE - height(v) - (v ? r() * 3 : 0)]);
+  // Log-scaled, so one busy week doesn't flatten the rest of the year.
+  const height = v => (v ? FLOOR + 10 + (BASE - TOP - FLOOR - 10) * Math.log1p(v) / Math.log1p(max) : 0);
+  const cones = s.sums.map((v, i) => ({ x: X0 + i * step, h: height(v) }));
+  const [sx, peakH] = [cones[s.peak].x, cones[s.peak].h];
 
-  // front ridge: summits joined through shallow saddles, so busy stretches read as massifs
-  const ridge = [[X0 - 40, BASE - FLOOR]];
-  peaks.forEach((p, i) => {
-    // the year's summit gets a small plateau, room for the cross and the penguin
-    if (i === s.peak) ridge.push([p[0] - 9, p[1] + 1], [p[0] + 9, p[1] + 1]);
-    else ridge.push(p);
-    const q = peaks[i + 1];
-    if (q) {
-      const low = Math.max(p[1], q[1]);
-      ridge.push([(p[0] + q[0]) / 2 + (r() - 0.5) * step * 0.3, low + (BASE - low) * 0.14]);
-    }
-  });
-  ridge.push([X1 + 40, BASE - FLOOR]);
+  // Every week is a cone with flanks of one steepness and the ridge is their upper envelope:
+  // a big week becomes a broad mountain instead of a needle, small ones become its shoulders.
+  const rough = x => 1.5 * Math.sin(x * 0.23 + 1.3) + 0.9 * Math.sin(x * 0.57 + 0.4);
+  const envelope = (list, k, floor, plateau) => {
+    const xs = new Set(list.filter(c => c.h).map(c => c.x));
+    for (let x = X0 - 40; x <= X1 + 40; x += 4) xs.add(x);
+    if (plateau) [-8, 8].forEach(d => xs.add(sx + d));
+    const pts = [...xs].sort((a, b) => a - b).map(x => {
+      // the year's summit keeps a small flat top for the cross and the penguin
+      if (plateau && Math.abs(x - sx) <= 8) return [x, BASE - peakH];
+      const h = Math.max(floor, ...list.map(c => c.h - k * Math.abs(x - c.x)));
+      return [x, BASE - h - (h > floor + 3 ? rough(x) * Math.min(1, (h - floor) / 24) : 0)];
+    });
+    // drop points that lie on a straight line between their neighbours
+    return pts.filter((p, i) => {
+      if (i === 0 || i === pts.length - 1) return true;
+      const [a, b] = [pts[i - 1], pts[i + 1]];
+      return Math.abs(a[1] + (b[1] - a[1]) * (p[0] - a[0]) / (b[0] - a[0]) - p[1]) > 0.3;
+    });
+  };
+  const ridge = envelope(cones, 1.7, FLOOR, s.sums[s.peak] > 0);
   const body = [...ridge, [X1 + 40, H + 4], [X0 - 40, H + 4]];
+  const ridgeY = x => {
+    for (let i = 1; i < ridge.length; i++) {
+      const [[x1, y1], [x2, y2]] = [ridge[i - 1], ridge[i]];
+      if (x <= x2) return y1 + (y2 - y1) * (x - x1) / (x2 - x1);
+    }
+    return ridge.at(-1)[1];
+  };
 
-  // back range: the same year, smoothed over a month either side, for depth
-  const back = s.sums.map((_, i) => {
-    const near = s.sums.slice(Math.max(0, i - 4), i + 5);
-    return [X0 + i * step, BASE - height(near.reduce((a, b) => a + b, 0) / near.length) * 1.12 - 16];
-  });
-  const backBody = [[X0 - 40, back[0][1]], ...back, [X1 + 40, back.at(-1)[1]], [X1 + 40, H + 4], [X0 - 40, H + 4]];
+  // back range: the same year as gentler, broader hills, for depth
+  const backBody = [...envelope(cones.map(c => ({ x: c.x, h: c.h && c.h * 0.78 + 30 })), 0.75, FLOOR + 20), [X1 + 40, H + 4], [X0 - 40, H + 4]];
 
   const snowY = BASE - FLOOR - (BASE - TOP - FLOOR) * 0.45;
   const snowline = [];
@@ -84,18 +97,26 @@ export function snowReport(cal, s, t, updated) {
   });
 
   // the summit of the year: cross, label and the penguin
-  const [sx, sy] = peaks[s.peak];
+  const sy = BASE - peakH;
   const weekOf = cal.weeks[s.peak][0].date;
-  const peakLabel = text(`Peak week · ${num(s.sums[s.peak])}`, { x: 0, y: 0, size: 14, weight: 500 });
+  const thisWeek = s.peak === n - 1;
+  const peakLabel = text(`${thisWeek ? 'This week' : 'Peak week'} · ${num(s.sums[s.peak])}`, { x: 0, y: 0, size: 14, weight: 500 });
   const labelX = Math.min(Math.max(sx - peakLabel.width / 2, 20), W - peakLabel.width - 20);
   const summit = !s.sums[s.peak] ? '' : `<path transform="translate(${f(labelX)} ${f(sy - 36)})" d="${peakLabel.d}" fill="${t.text}"/>`
     + `<g transform="translate(${f(sx - 7)} ${f(sy + 2)}) scale(.8)">${penguinStanding(t)}</g>`
     + `<path d="M${f(sx + 7)} ${f(sy + 1)}v-25M${f(sx + 1)} ${f(sy - 16)}h12" stroke="${t.text}" stroke-width="2.6" stroke-linecap="round"/>`;
 
-  // today: a beacon on the last summit
-  const [tx, ty] = peaks[n - 1];
-  const beacon = `<circle cx="${f(tx)}" cy="${f(ty)}" r="4.5" fill="${t.accent}"/><circle cx="${f(tx)}" cy="${f(ty)}" r="5" stroke="${t.accent}" stroke-width="2" fill="none" class="ping"/>`
-    + `<path d="${text('today', { x: tx - 10, y: ty - 14, size: 13, weight: 500, anchor: 'end' }).d}" fill="${t.accent}"/>`;
+  // today: a beacon where the ridge is this week; its label goes left, else right, else stays off
+  // (the summit owns that spot when the busiest week is this one or close to it)
+  const tx = X1, ty = ridgeY(tx);
+  const busy = s.sums[s.peak] ? [Math.min(labelX, sx - 18) - 6, Math.max(labelX + peakLabel.width, sx + 16) + 6, sy - 52] : null;
+  const todayW = text('today', { size: 13, weight: 500 }).width;
+  const clear = x => x >= 16 && x + todayW <= W - 16
+    && !(busy && x < busy[1] && x + todayW > busy[0] && ty - 14 > busy[2])
+    && [0, 0.5, 1].every(u => ridgeY(x + u * todayW) > ty - 10); // no text over the mountain itself
+  const todayX = [tx - 10 - todayW, tx + 10].find(clear);
+  const beacon = thisWeek && s.sums[s.peak] ? '' : `<circle cx="${f(tx)}" cy="${f(ty)}" r="4.5" fill="${t.accent}"/><circle cx="${f(tx)}" cy="${f(ty)}" r="5" stroke="${t.accent}" stroke-width="2" fill="none" class="ping"/>`
+    + (todayX === undefined ? '' : `<path d="${text('today', { x: todayX, y: ty - 14, size: 13, weight: 500 }).d}" fill="${t.accent}"/>`);
 
   const rock = dark ? ['#243329', '#121b16'] : ['#8a9c85', '#68795f'];
   const backCap = poly([[X0 - 40, 0], ...snowline.map(([x, y]) => [x, y - 30]), [X1 + 50, 0]]);
