@@ -1,0 +1,41 @@
+name: Profile images
+
+# Redraws the SVGs in assets/: after edits to scripts/ (e.g. scripts/content.mjs),
+# and once a day for the snow report. The scripts have no dependencies; the runner's Node is enough.
+on:
+  push:
+    branches: [main]
+    paths: ['scripts/**', '.github/workflows/profile.yml']
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: profile-images
+  cancel-in-progress: false
+
+jobs:
+  draw:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Draw images
+        run: node scripts/build.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets
+          if git diff --staged --quiet; then
+            echo 'Nothing to redraw.'
+            exit 0
+          fi
+          git commit -m 'Redraw profile images'
+          git push || (git pull --rebase origin main && git push)
