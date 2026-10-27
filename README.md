@@ -1,9 +1,5 @@
 <h2 align="left">Read 👀</h2>
 
-Currently working on:
-- https://github.com/BurgiSimon/triolFM
-- https://github.com/BurgiSimon/PlayerScale
-
 ###
 
 <img align="right" height="150" src="https://media.tenor.com/fpEpVTSdcqYAAAAj/%D0%BF%D0%B8%D0%BD%D0%B3%D0%B2%D0%B8%D0%BD.gif"  />
