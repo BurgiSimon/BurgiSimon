@@ -31,6 +31,20 @@ export function smooth(pts) {
   return d;
 }
 
+// One aurora ribbon: a wavy lower edge with a curtain rising from it, tapered at both ends.
+// `freq` tightens the waves for narrow images (the hero is 1200px wide).
+export function auroraShape(x0, x1, yb, amp, h, phase, freq = 1) {
+  const top = [], bottom = [];
+  for (let x = x0; x <= x1 + 1; x += (x1 - x0) / 26) {
+    const u = (x - x0) / (x1 - x0);
+    const taper = Math.sin(Math.PI * u) ** 0.7;
+    const y = yb + amp * Math.sin(x * 0.0075 * freq + phase) + amp * 0.45 * Math.sin(x * 0.019 * freq + phase * 1.9);
+    bottom.push([x, y]);
+    top.push([x, y - h * taper * (0.65 + 0.35 * Math.sin(x * 0.012 * freq + phase * 0.7))]);
+  }
+  return poly([...top, ...bottom.reverse()]);
+}
+
 // A faceted mountain: lit west face, shaded east face, streaky snow cap.
 let uid = 0;
 export function mountain({ ridge, spine, base, snowY, fingers = 26, r, rock, shade, snow, snowShade, snowOpacity = 1 }) {

@@ -2,21 +2,9 @@
 // a goggled penguin slides after him, and a typed line cycles through what he builds.
 import { text, glyphSet } from '../lib/font.mjs';
 import { doc, f, k, rng, read } from '../lib/svg.mjs';
-import { chain, poly, smooth, mountain, pine, penguin, flakes, flakeStyle, sprite } from '../lib/scene.mjs';
+import { chain, poly, smooth, mountain, pine, penguin, flakes, flakeStyle, sprite, auroraShape } from '../lib/scene.mjs';
 
 const W = 1200, H = 420;
-
-function auroraShape(x0, x1, yb, amp, h, phase) {
-  const top = [], bottom = [];
-  for (let x = x0; x <= x1 + 1; x += (x1 - x0) / 26) {
-    const u = (x - x0) / (x1 - x0);
-    const taper = Math.sin(Math.PI * u) ** 0.7;
-    const y = yb + amp * Math.sin(x * 0.0075 + phase) + amp * 0.45 * Math.sin(x * 0.019 + phase * 1.9);
-    bottom.push([x, y]);
-    top.push([x, y - h * taper * (0.65 + 0.35 * Math.sin(x * 0.012 + phase * 0.7))]);
-  }
-  return poly([...top, ...bottom.reverse()]);
-}
 
 export function hero(content, t) {
   const r = rng(1291);
