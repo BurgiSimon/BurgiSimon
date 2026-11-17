@@ -2,7 +2,8 @@
 // next to the repo name, tagline, description and stack.
 import { text, wrap } from '../lib/font.mjs';
 import { doc, f, k, rng } from '../lib/svg.mjs';
-import { sprite } from '../lib/scene.mjs';
+import { auroraShape, pine } from '../lib/scene.mjs';
+import { themes } from '../lib/theme.mjs';
 
 const W = 600, H = 300;
 const SX = 22, SY = 22, SW = 236, SH = 256; // the scene stage
@@ -143,49 +144,193 @@ const scenes = {
     };
   },
 
-  // spoter: song cards swiped right with a heart
-  swipe(t) {
-    // Two cards trade places: each is swiped off, reappears at the back, and moves forward again.
-    // Card B runs the same timeline half a loop later (negative begin), so the loop never jumps.
-    const D = 8.8, covers = [[t.accent, '#6fc6ae'], ['#f2a479', '#c9668a']];
-    const FRONT = '118 128', BACK = '118 137', DRAG = '172 120', GONE = '336 100';
-    const moves = (begin, cover, first) => {
-      const b = ` begin="${begin}s"`;
-      const tr = tf('translate', D, [[0, FRONT], [0.14, FRONT], [0.26, DRAG], [0.36, GONE], [0.37, BACK], [0.64, BACK], [0.86, FRONT], [1, FRONT]], b + ease(8));
-      const rot = tf('rotate', D, [[0, '0'], [0.14, '0'], [0.26, '9'], [0.36, '22'], [0.37, '0'], [1, '0']], b + ease(6));
-      const sc = tf('scale', D, [[0, '1'], [0.37, '1'], [0.38, '.92'], [0.64, '.92'], [0.86, '1'], [1, '1']], b + ease(6));
-      const op = anim('opacity', D, [[0, 1], [0.36, 1], [0.37, 0], [0.42, 0], [0.5, 1], [1, 1]], b);
-      const heart = anim('opacity', D, [[0, 0], [0.17, 0], [0.24, 1], [0.36, 1], [0.37, 0], [1, 0]], b);
-      const inner = `<g transform="translate(${FRONT})">${tr}<g>${rot}<g>${sc}<g>${op}`
-        + `<rect x="-58" y="-82" width="116" height="164" rx="16" fill="${t.surface}" stroke="${t.line}" stroke-width="1.5"/>`
-        + `<rect x="-46" y="-70" width="92" height="92" rx="10" fill="url(#${cover})"/>`
-        + `<rect x="-46" y="34" width="70" height="8" rx="4" fill="${t.text}"/><rect x="-46" y="50" width="46" height="6" rx="3" fill="${t.muted}"/>`
-        + `<circle cx="34" cy="50" r="10" fill="${t.hover}"/><path d="M31 45.5l8 4.5-8 4.5z" fill="${t.text}"/>`
-        + `<g opacity="0" transform="rotate(-12)">${heart}<rect x="-30" y="-62" width="62" height="28" rx="8" stroke="${t.accent}" stroke-width="2.5" fill="${t.surface}"/><path d="M-11-49c0-6 8-8 10-2 2-6 10-4 10 2 0 5-10 11-10 11s-10-6-10-11z" fill="${t.accent}"/></g>`
-        + '</g></g></g></g>';
-      // SVG has no z-index: the card lives on a back layer while waiting and a front layer while on top
-      const role = values => `<animate attributeName="opacity" dur="${D}s"${b} repeatCount="indefinite" calcMode="discrete" keyTimes="0;.37;.86" values="${values}"/>`;
-      return { front: `<g${first ? '' : ' opacity="0"'}>${role('1;0;1')}${inner}</g>`, back: `<g opacity="0">${role('0;1;0')}${inner}</g>` };
+  // AwardComponents: the cell-curtain demo on its workbench. The curtain weaves shut and open,
+  // the cell width is dragged smaller, it runs again with finer cells, and the prompt is copied.
+  curtain(t) {
+    const D = 10, dark = t.name === 'dark';
+    const AX = 26, AY = 38, AW = 184, AH = 100; // the demo's page inside the preview window
+    // One sweep, as in the component: cells grow from hairlines into bars by grid distance from
+    // the bottom-right cell, hold shut while the page swaps behind them, then open in the same order.
+    const SP = 0.06, DD = 0.04, HOLD = 0.02;
+    const sweep = (s, cols, rows) => {
+      const cw = AW / cols, ch = AH / rows, max = Math.hypot(cols - 1, rows - 1);
+      let out = '';
+      for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+        const u = Math.hypot(cols - 1 - i, rows - 1 - j) / max;
+        const c0 = s + u * SP, o0 = s + SP + DD + HOLD + u * SP;
+        const frames = [[0, '0 1'], [c0, '0 1'], [c0 + DD, '1 1'], [o0, '1 1'], [o0 + DD, '0 1'], [1, '0 1']];
+        out += `<g transform="translate(${f(AX + i * cw)} ${f(AY + j * ch)})"><rect width="${f(cw + 0.6)}" height="${f(ch + 0.6)}" fill="${t.accent}" transform="scale(0 1)">${tf('scale', D, frames, ease(frames.length))}</rect></g>`;
+      }
+      return out;
     };
-    const A = moves(0, 'cv0', true), B = moves(-D / 2, 'cv1', false);
+    const W1 = 0.05, W2 = 0.52, shut = s => s + SP + DD + HOLD / 2;
+
+    // two pages of a speaker's launch site: Overview, then Sound
+    const head = s => `<path d="${text(s, { x: AX + 12, y: AY + 28, size: 18, weight: 600 }).d}" fill="${t.text}"/>`;
+    const sx = AX + 143, sy = AY + 50;
+    const pageA = `<rect x="${AX}" y="${AY}" width="${AW}" height="${AH}" fill="${dark ? t.raised : '#f7f9f5'}"/>${head('Kova One')}`
+      + `<rect x="${AX + 12}" y="${AY + 40}" width="78" height="6" rx="3" fill="${t.muted}" opacity=".55"/><rect x="${AX + 12}" y="${AY + 52}" width="58" height="6" rx="3" fill="${t.muted}" opacity=".55"/>`
+      + `<rect x="${AX + 12}" y="${AY + 70}" width="44" height="16" rx="8" fill="${t.text}"/>`
+      + `<rect x="${sx - 24}" y="${AY + 12}" width="48" height="76" rx="13" fill="${dark ? '#2e3d32' : '#26332a'}"/>`
+      + `<circle cx="${sx}" cy="${sy + 12}" r="16" fill="${dark ? '#1b251f' : '#3a4a3d'}"/><circle cx="${sx}" cy="${sy + 12}" r="6.5" fill="${dark ? '#3c4d40' : '#56685a'}"/>`
+      + `<circle cx="${sx}" cy="${AY + 28}" r="5" fill="${dark ? '#1b251f' : '#3a4a3d'}"/>`;
+    let wave = '';
+    for (let i = 0; i < 17; i++) {
+      const h = 6 + 40 * Math.abs(Math.sin(i * 0.82) * Math.cos(i * 0.31));
+      wave += `<rect x="${f(AX + 13 + i * 9.6)}" y="${f(AY + 66 - h / 2)}" width="5" height="${f(h)}" rx="2.5" fill="${i % 3 === 1 ? t.muted : t.text}"/>`;
+    }
+    const pageB = `<rect x="${AX}" y="${AY}" width="${AW}" height="${AH}" fill="${t.hover}"/>${head('Sound')}${wave}`;
+    const swap = `<animate attributeName="opacity" dur="${D}s" repeatCount="indefinite" calcMode="discrete" keyTimes="0;${k(shut(W1))};${k(shut(W2))}" values="0;1;0"/>`;
+
+    // the control: Cell width, 80 px dragged down to 40 px (range 40–160)
+    const TX0 = 24, TWD = 188, kx0 = TX0 + TWD * (80 - 40) / 120, kx1 = TX0;
+    const DRAG = [0.33, 0.45], RESET = [0.95, 0.99];
+    const knob = [[0, kx0], [DRAG[0], kx0], [DRAG[1], kx1], [RESET[0], kx1], [RESET[1], kx0], [1, kx0]];
+    const value = (s, c, frames) => `<g${frames[0][1] ? '' : ' opacity="0"'}>${anim('opacity', D, frames)}<path d="${text(s, { x: 214, y: 172, size: 14, weight: 500, anchor: 'end' }).d}" fill="${c}"/></g>`;
+    const swapAt = (DRAG[0] + DRAG[1]) / 2;
+
+    // the prompt button, and its copied state
+    const BY = 204, BH = 36, BC = 118;
+    const lbl = (s, c, icon) => {
+      const L = text(s, { size: 14, weight: 500 }), x = BC - (L.width + 20) / 2;
+      return icon(x, c) + `<path d="${text(s, { x: x + 20, y: BY + 23, size: 14, weight: 500 }).d}" fill="${c}"/>`;
+    };
+    const copyIcon = (x, c) => `<rect x="${f(x + 3.5)}" y="${BY + 10.5}" width="9" height="11" rx="2.2" stroke="${c}" stroke-width="1.6"/><path d="M${f(x)} ${BY + 22.5}v-9.3a2 2 0 0 1 2-2" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/>`;
+    const checkIcon = (x, c) => `<path d="M${f(x)} ${BY + 18}l4 4 8-9" stroke="${c}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    const CLICK = 0.845, COPIED = [0.855, 0.95, 0.97];
+
+    // the pointer: rests on the demo, drags the knob, watches, then copies the prompt
+    const REST = '200 118', WATCH = '152 112', PRESS = `194 ${BY + 20}`;
+    const cursor = [[0, REST], [0.27, REST], [DRAG[0] - 0.01, `${f(kx0)} 186`], [DRAG[0], `${f(kx0)} 186`], [DRAG[1], `${kx1} 186`], [DRAG[1] + 0.02, `${kx1} 186`],
+      [0.53, WATCH], [0.77, WATCH], [CLICK - 0.01, PRESS], [CLICK + 0.02, PRESS], [0.93, REST], [1, REST]];
+
     return {
-      defs: covers.map(([a, b], i) => `<linearGradient id="cv${i}" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`).join(''),
-      body: `<rect width="${SW}" height="${SH}" fill="${t.raised}"/>${A.back}${B.back}${A.front}${B.front}`,
+      defs: `<clipPath id="page"><rect x="${AX}" y="${AY}" width="${AW}" height="${AH}" rx="7"/></clipPath>`,
+      body: `<rect width="${SW}" height="${SH}" fill="${t.raised}"/>`
+        // preview window
+        + `<rect x="16" y="14" width="204" height="134" rx="12" fill="${t.surface}" stroke="${t.line}" stroke-width="1.5"/>`
+        + `<circle cx="28" cy="26" r="2.6" fill="${t.line}"/><circle cx="37" cy="26" r="2.6" fill="${t.line}"/><circle cx="46" cy="26" r="2.6" fill="${t.line}"/>`
+        + `<rect x="64" y="21" width="108" height="10" rx="5" fill="${t.hover}"/>`
+        + `<g clip-path="url(#page)">${pageA}<g opacity="0">${swap}${pageB}</g>${sweep(W1, 4, 2)}${sweep(W2, 8, 4)}</g>`
+        // control
+        + `<path d="${text('Cell width', { x: 22, y: 172, size: 14, weight: 500 }).d}" fill="${t.text}"/>`
+        + value('80 px', t.muted, [[0, 1], [swapAt - 0.01, 1], [swapAt + 0.01, 0], [RESET[1] - 0.01, 0], [RESET[1], 1], [1, 1]])
+        + value('40 px', t.accent, [[0, 0], [swapAt - 0.01, 0], [swapAt + 0.01, 1], [RESET[1] - 0.01, 1], [RESET[1], 0], [1, 0]])
+        + `<rect x="${TX0}" y="184" width="${TWD}" height="4" rx="2" fill="${t.line}"/>`
+        + `<rect x="${TX0}" y="184" width="${f(kx0 - TX0)}" height="4" rx="2" fill="${t.accent}">${anim('width', D, knob.map(([at, x]) => [at, f(x - TX0)]), ease(knob.length))}</rect>`
+        + `<circle cx="${f(kx0)}" cy="186" r="7.5" fill="${t.accent}" stroke="${t.raised}" stroke-width="2">${anim('cx', D, knob.map(([at, x]) => [at, f(x)]), ease(knob.length))}`
+        + `${anim('r', D, [[0, 7.5], [DRAG[0] - 0.01, 7.5], [DRAG[0], 9], [DRAG[1], 9], [DRAG[1] + 0.01, 7.5], [1, 7.5]])}</circle>`
+        // prompt button
+        + `<rect x="20" y="${BY}" width="196" height="${BH}" rx="${BH / 2}" fill="${t.surface}" stroke="${t.line}" stroke-width="1.5"/>`
+        + `<g>${anim('opacity', D, [[0, 1], [COPIED[0] - 0.005, 1], [COPIED[0], 0], [COPIED[2] - 0.005, 0], [COPIED[2] + 0.01, 1], [1, 1]])}${lbl('Copy prompt', t.text, copyIcon)}</g>`
+        + `<g opacity="0">${anim('opacity', D, [[0, 0], [COPIED[0] - 0.005, 0], [COPIED[0], 1], [COPIED[1], 1], [COPIED[2], 0], [1, 0]])}`
+        + `<rect x="20" y="${BY}" width="196" height="${BH}" rx="${BH / 2}" fill="${t.accent}"/>${lbl('Prompt copied', t.accentInk, checkIcon)}</g>`
+        + `<circle cx="194" cy="${BY + 20}" r="8" fill="${t.text}" opacity="0">${anim('opacity', D, [[0, 0], [CLICK, 0], [CLICK + 0.01, 0.4], [CLICK + 0.07, 0], [1, 0]])}${anim('r', D, [[0, 8], [CLICK, 8], [CLICK + 0.07, 24], [1, 24]])}</circle>`
+        + `<g transform="translate(${REST})"><path d="M0 0v17l4.6-4.4 3 7 3-1.3-3-6.8h6.4z" fill="#ffffff" stroke="#050806" stroke-width="1.4" stroke-linejoin="round"/>`
+        + tf('translate', D, cursor, ease(cursor.length)) + '</g>',
     };
   },
 
-  // Shred360: Simon on a turntable, in ski gear
-  spin(t) {
-    const D = 5;
-    const turn = [[0, '1 1'], [0.25, '.08 1'], [0.5, '-1 1'], [0.75, '-.08 1'], [1, '1 1']];
+  // lifelike-heroes: the star chart hero, a night over a snowy spruce forest. The pointer pencils a
+  // constellation between the bright stars nearby, a click inks it in and a shooting star marks it.
+  sky(t, r) {
+    const D = 10, n = themes.dark, ink = '#f4a77a', star = '#f4f7f2';
+    // the scene is a photograph, so it stays a night sky in both themes
+    let dust = '', stars = '';
+    for (let i = 0; i < 70; i++) { // the Milky Way: a haze and a band of faint stars across it
+      const s = (r() - 0.5) * 300, off = (r() + r() + r() - 1.5) * 16;
+      dust += `<circle cx="${f(118 + s * 0.883 + off * 0.469)}" cy="${f(92 - s * 0.469 + off * 0.883)}" r="${f(0.3 + r() * 0.45)}" opacity="${f(0.25 + r() * 0.4)}"/>`;
+    }
+    for (let i = 0; i < 52; i++) {
+      const tw = r() < 0.4 ? ` class="tw" style="animation-duration:${f(2.6 + r() * 4)}s;animation-delay:-${f(r() * 6)}s"` : '';
+      stars += `<circle cx="${f(r() * SW)}" cy="${f(r() ** 1.25 * 196)}" r="${f(0.45 + r() * 0.85)}" opacity="${f(0.3 + r() * 0.6)}"${tw}/>`;
+    }
+
+    // the constellation: a minimum spanning tree over the bright stars, the way the hero joins them
+    const cs = [[40, 74], [70, 52], [98, 68], [128, 46], [158, 62], [112, 98]];
+    const edges = [], inTree = [0];
+    while (inTree.length < cs.length) {
+      let best = null;
+      for (const a of inTree) for (let b = 0; b < cs.length; b++) {
+        if (inTree.includes(b)) continue;
+        const d = Math.hypot(cs[a][0] - cs[b][0], cs[a][1] - cs[b][1]);
+        if (!best || d < best.d) best = { a, b, d };
+      }
+      edges.push(best); inTree.push(best.b);
+    }
+    const HOVER = 0.2, CLICK = 0.31, NAMED = 0.55, FADE = [0.86, 0.93];
+    const C = [102, 74]; // where the pointer hovers
+    const seg = e => `M${cs[e.a][0]} ${cs[e.a][1]}L${cs[e.b][0]} ${cs[e.b][1]}`;
+    let pencil = '', inked = '';
+    edges.forEach((e, i) => {
+      const mid = [(cs[e.a][0] + cs[e.b][0]) / 2, (cs[e.a][1] + cs[e.b][1]) / 2];
+      const at = HOVER - 0.08 + Math.min(0.07, Math.hypot(mid[0] - C[0], mid[1] - C[1]) / 900);
+      pencil += `<path d="${seg(e)}" opacity="0">${anim('opacity', D, [[0, 0], [at, 0], [at + 0.03, 0.6], [CLICK, 0.6], [CLICK + 0.03, 0], [1, 0]])}</path>`;
+      const L = Math.ceil(e.d), s = CLICK + 0.01 + i * 0.04;
+      inked += `<path d="${seg(e)}" stroke-dasharray="${L}">${anim('stroke-dashoffset', D, [[0, L], [s, L], [s + 0.045, 0], [1, 0]], ease(4))}</path>`;
+    });
+    const shown = [[0, 0], [CLICK, 0], [CLICK + 0.005, 1], [FADE[0], 1], [FADE[1], 0], [1, 0]];
+    const bright = cs.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="6" fill="url(#glint)" opacity=".45">${anim('opacity', D, [[0, 0.45], [CLICK, 0.45], [CLICK + 0.06, 0.95], [FADE[0], 0.95], [FADE[1], 0.45], [1, 0.45]])}</circle>`
+      + `<circle cx="${x}" cy="${y}" r="1.7" fill="${star}"/>`).join('');
+    const name = text('The Penguin', { x: 112, y: 120, size: 12, weight: 500, tracking: 0.04, anchor: 'middle' });
+
+    // aurora over the treeline, green with a violet crown
+    const ribbons = [
+      { yb: 200, amp: 9, h: 70, c: n.aurora[1], o: 0.85, dur: 13 },
+      { yb: 176, amp: 7, h: 44, c: n.aurora[2], o: 0.6, dur: 17 },
+    ];
+    let aurora = '';
+    ribbons.forEach((rb, i) => {
+      const shapes = [0, 1.7, 3.2].map(p => auroraShape(-24, SW + 24, rb.yb, rb.amp, rb.h, p + i * 2, 5.5));
+      const morph = `<animate attributeName="d" dur="${rb.dur}s" repeatCount="indefinite" values="${[...shapes, shapes[0]].join(';')}" keyTimes="0;.33;.66;1" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1"/>`;
+      aurora += `<g opacity="${rb.o}" fill="url(#au${i})" mask="url(#rays)"><path d="${shapes[0]}" filter="url(#soft)">${morph}</path><path d="${shapes[0]}" opacity=".45">${morph}</path></g>`;
+    });
+
+    // snowy spruce forest, a small observatory on the rise
+    let far = 'M-4 222', x = -4;
+    while (x < SW + 4) { const w = 4 + r() * 5, h = 5 + r() * 11; far += `L${f(x + w / 2)} ${f(214 - h)}L${f(x + w)} 214`; x += w; }
+    let forest = `<path d="${far}L${f(x)} 222z" fill="#0b130f"/>`
+      + `<path d="M-4 218C40 212 80 218 120 215S190 207 240 212V${SH + 4}H-4z" fill="url(#snowfield)"/>`
+      + `<rect x="157" y="200" width="22" height="12" fill="#0d1511"/><path d="M156 201a12 11 0 0 1 24 0z" fill="#c9d4c6"/><path d="M165.6 191.6l3.6-.5v9.9h-3.6z" fill="#0d1511"/><rect x="161" y="204" width="3" height="3" fill="#f2c879"/>`;
+    for (const [x, y, h] of [[4, 252, 46], [20, 258, 56], [40, 256, 36], [56, 260, 24], [196, 262, 30], [210, 256, 50], [228, 252, 40]]) forest += pine(x, y, h, n, r);
+
+    // the pointer glides in, hovers, clicks, and drifts off again
+    const REST = '204 132';
+    const cursor = [[0, REST], [0.04, REST], [HOVER, `${C[0]} ${C[1]}`], [CLICK + 0.04, `${C[0] - 2} ${C[1] + 2}`], [0.52, REST], [1, REST]];
+    const SHOT = [0.6, 0.67];
+
     return {
-      defs: sprite('rider', 'ski-wave', 0.86),
-      body: `<rect width="${SW}" height="${SH}" fill="${t.raised}"/>`
-        + `<ellipse cx="${SW / 2}" cy="208" rx="82" ry="20" fill="${t.hover}"/><ellipse cx="${SW / 2}" cy="204" rx="82" ry="20" fill="${t.surface}" stroke="${t.line}" stroke-width="1.5"/>`
-        + `<ellipse cx="${SW / 2}" cy="204" rx="66" ry="14" stroke="${t.accent}" stroke-width="2.5" stroke-dasharray="10 14" fill="none"><animate attributeName="stroke-dashoffset" dur="1.6s" repeatCount="indefinite" values="0;-48"/></ellipse>`
-        + `<g transform="translate(${SW / 2} 206)"><g>${tf('scale', D, turn, ' calcMode="spline" keySplines=".37 0 .63 1;.37 0 .63 1;.37 0 .63 1;.37 0 .63 1"')}<use href="#rider"/></g></g>`
-        + `<path d="M40 46a52 15 0 1 1 18 11" stroke="${t.muted}" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M62 54l-6 6-2-9z" fill="${t.muted}"/>`
-        + `<path d="${text('360°', { x: 158, y: 52, size: 18, weight: 500 }).d}" fill="${t.text}"/>`,
+      style: '.tw{animation:tw 4s ease-in-out infinite}@keyframes tw{50%{opacity:.12}}',
+      defs: `<linearGradient id="night" x1="0" y1="0" x2="0" y2="1">${n.sky.map((c, i) => `<stop offset="${k(i / (n.sky.length - 1))}" stop-color="${c}"/>`).join('')}</linearGradient>`
+        + `<radialGradient id="glint"><stop stop-color="${star}" stop-opacity=".9"/><stop offset=".35" stop-color="${star}" stop-opacity=".25"/><stop offset="1" stop-color="${star}" stop-opacity="0"/></radialGradient>`
+        + ribbons.map((rb, i) => `<linearGradient id="au${i}" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#a493e0" stop-opacity="0"/><stop offset=".45" stop-color="#a493e0" stop-opacity=".14"/><stop offset=".82" stop-color="${rb.c}" stop-opacity=".7"/><stop offset="1" stop-color="${rb.c}" stop-opacity=".15"/></linearGradient>`).join('')
+        + `<linearGradient id="snowfield" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#a9bcab"/><stop offset="1" stop-color="#55665a"/></linearGradient>`
+        + `<linearGradient id="streak" x1="38" y1="-21" x2="0" y2="0" gradientUnits="userSpaceOnUse"><stop stop-color="${star}" stop-opacity="0"/><stop offset="1" stop-color="${star}"/></linearGradient>`
+        // auroral curtains fall in rays: a mask of uneven vertical stripes
+        + `<linearGradient id="ray" x1="0" x2="23" gradientUnits="userSpaceOnUse" spreadMethod="repeat">${[[0, 0.5], [0.2, 1], [0.32, 0.6], [0.5, 0.85], [0.62, 0.45], [0.8, 1], [1, 0.5]].map(([o, a]) => `<stop offset="${o}" stop-color="#fff" stop-opacity="${a}"/>`).join('')}</linearGradient>`
+        + `<mask id="rays" maskUnits="userSpaceOnUse" x="-30" y="0" width="${SW + 60}" height="${SH}"><rect x="-30" width="${SW + 60}" height="${SH}" fill="url(#ray)"/></mask>`
+        + '<filter id="soft" x="-10%" y="-40%" width="120%" height="180%"><feGaussianBlur stdDeviation="4"/></filter>'
+        + '<filter id="haze" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>',
+      body: `<rect width="${SW}" height="${SH}" fill="url(#night)"/>`
+        + `<ellipse cx="118" cy="92" rx="170" ry="17" transform="rotate(-28 118 92)" fill="#cfe0d4" opacity=".1" filter="url(#haze)"/>`
+        + `<g fill="${star}">${dust}${stars}</g>${aurora}`
+        // the hero's own furniture: a small nav, and its headline
+        + `<g fill="${star}" opacity=".5"><circle cx="20" cy="20" r="3.5"/><rect x="28" y="18" width="26" height="4" rx="2"/><rect x="152" y="18.5" width="16" height="3" rx="1.5"/><rect x="176" y="18.5" width="16" height="3" rx="1.5"/><rect x="200" y="18.5" width="18" height="3" rx="1.5"/></g>`
+        + `<path d="${text('Polar Night', { x: SW / 2, y: 170, size: 24, weight: 300, tracking: 0.02, anchor: 'middle' }).d}" fill="${star}"/>`
+        + forest
+        // the constellation
+        + `<g stroke="${star}" stroke-width=".9" stroke-dasharray="2 3">${pencil}</g>`
+        + `<g stroke="${ink}" stroke-linecap="round">${anim('opacity', D, shown)}<g stroke-width="4.5" opacity=".25">${inked}</g><g stroke-width="1.6">${inked}</g></g>`
+        + bright
+        + `<g>${anim('opacity', D, [[0, 0], [NAMED, 0], [NAMED + 0.04, 1], [FADE[0], 1], [FADE[1], 0], [1, 0]])}<path d="${name.d}" fill="${ink}"/></g>`
+        // a shooting star marks the moment
+        + `<g opacity="0">${anim('opacity', D, [[0, 0], [SHOT[0], 0], [SHOT[0] + 0.015, 1], [SHOT[1] - 0.02, 1], [SHOT[1], 0], [1, 0]])}<g transform="translate(232 22)">`
+        + tf('translate', D, [[0, '232 22'], [SHOT[0], '232 22'], [SHOT[1], '178 52'], [1, '178 52']], ` calcMode="spline" keySplines="0 0 1 1;.3 .6 .5 1;0 0 1 1"`)
+        + `<path d="M38-21L0 0" stroke="url(#streak)" stroke-width="1.4" stroke-linecap="round"/><circle r="1.4" fill="${star}"/></g></g>`
+        // a click ring and the pointer
+        + `<circle cx="${C[0]}" cy="${C[1]}" r="4" stroke="${star}" stroke-width="1.5" opacity="0">${anim('opacity', D, [[0, 0], [CLICK, 0], [CLICK + 0.01, 0.8], [CLICK + 0.08, 0], [1, 0]])}${anim('r', D, [[0, 4], [CLICK, 4], [CLICK + 0.08, 20], [1, 20]])}</circle>`
+        + `<g transform="translate(${C[0]} ${C[1]})"><path d="M0 0v17l4.6-4.4 3 7 3-1.3-3-6.8h6.4z" fill="#ffffff" stroke="#050806" stroke-width="1.4" stroke-linejoin="round"/>`
+        + tf('translate', D, cursor, ease(cursor.length)) + '</g>',
     };
   },
 };
@@ -198,7 +343,9 @@ export function card(p, t) {
   const scene = scenes[p.scene](t, r);
 
   // Cards show at ~425px wide on a profile, so type is sized for that (≈12px on screen at the smallest).
-  const name = text(p.repo, { x: TX, y: 66, size: 34, weight: 500, tracking: -0.01 });
+  // long repo names shrink to keep clear of the arrow
+  const nameSize = Math.min(34, f(34 * 250 / text(p.repo, { size: 34, weight: 500, tracking: -0.01 }).width));
+  const name = text(p.repo, { x: TX, y: 66, size: nameSize, weight: 500, tracking: -0.01 });
   const tagLines = wrap(p.tagline, TW, { size: 20, weight: 400 });
   let y = 101, words = '';
   for (const line of tagLines) { words += `<path d="${text(line, { x: TX, y, size: 20, weight: 400 }).d}" fill="${t.accent}"/>`; y += 25.5; }

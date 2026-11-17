@@ -80,16 +80,16 @@ export const projects = [
     stack: ['Plugin', 'JavaScript', 'Codex'],
   },
   {
-    repo: 'spoter', scene: 'swipe',
-    tagline: 'Spotify × Tinder.',
-    description: 'Swipe, duel and rank songs until the algorithm knows your taste better than you do.',
-    stack: ['Next.js', 'TypeScript', 'Postgres'],
+    repo: 'AwardComponents', scene: 'curtain',
+    tagline: 'Award-league web moves, ready to tune.',
+    description: 'Over 100 components from the awards recipes, each a live demo with controls and a prompt.',
+    stack: ['JavaScript', 'GSAP', 'three.js'],
   },
   {
-    repo: 'Shred360', scene: 'spin',
-    tagline: 'Your real ski wardrobe, in 3D.',
-    description: 'Build outfits from the gear you own on a 3D rider and share your fit as a 360° video.',
-    stack: ['React Three Fiber', 'TypeScript'],
+    repo: 'lifelike-heroes', scene: 'sky',
+    tagline: 'Photographs you can touch.',
+    description: 'Three live WebGL heroes, a meadow, a koi pond and a star chart, that react when you play.',
+    stack: ['three.js', 'WebGL 2', 'GLSL'],
   },
 ];
 
